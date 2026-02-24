@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  DOCKER_USERNAME: vuttaradhivyshnavi
+
 jobs:
   build-and-push:
     name: Build & Push Docker Images
@@ -17,7 +20,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set up Docker Buildx
@@ -28,14 +31,14 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/mean-backend:latest
+          tags: vuttaradhivyshnavi/mean-backend:latest
 
       - name: Build & Push Frontend Image
         uses: docker/build-push-action@v4
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/mean-frontend:latest
+          tags: vuttaradhivyshnavi/mean-frontend:latest
 
   deploy:
     name: Deploy to VM
@@ -46,13 +49,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Copy docker-compose and nginx config to VM
+      - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
-          source: "docker-compose.yml,nginx/"
+          source: "docker-compose.prod.yml,nginx/"
           target: "~/mean-app"
 
       - name: SSH into VM and Deploy
@@ -64,16 +67,13 @@ jobs:
           script: |
             cd ~/mean-app
 
-            # Update docker-compose to use pre-built images from Docker Hub
-            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-
-            # Pull latest images
-            docker pull ${{ secrets.DOCKER_USERNAME }}/mean-backend:latest
-            docker pull ${{ secrets.DOCKER_USERNAME }}/mean-frontend:latest
+            # Pull latest images from Docker Hub
+            docker pull vuttaradhivyshnavi/mean-backend:latest
+            docker pull vuttaradhivyshnavi/mean-frontend:latest
 
             # Restart containers with latest images
-            docker compose down
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml down
+            DOCKER_USERNAME=vuttaradhivyshnavi docker compose -f docker-compose.prod.yml up -d
 
             # Clean up old images
             docker image prune -f
